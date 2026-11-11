@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Carnitas el Serrano — Control diario</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="512x512" href="assets/icon-512.png">
+<link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png">
+<link rel="apple-touch-icon" href="assets/icon-512.png">
+<meta name="theme-color" content="#00c853">
+<style>
+:root{--green:#22c55e;--green-bright:#39ff6a;--black:#0a0a0a;--dark:#141414;--card:#1c1c1c;--gold:#e8b93b;--pink:#f7a8b8;--white:#fff;--grey:#9a9a9a;--red:#ff5a5a}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--black);color:var(--white);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:560px;margin:0 auto;min-height:100vh}
+button{font-family:inherit;cursor:pointer}
+input,select{font-family:inherit;font-size:16px}
+.hidden{display:none!important}
+.money{color:var(--gold);font-weight:700}
+/* Login / setup */
+#screen-login{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center}
+#screen-login img.logo{width:220px;max-width:70vw;border-radius:16px}
+#screen-login h1{font-size:28px;margin:18px 0 4px}
+#screen-login h1 b{color:var(--green-bright)}
+#screen-login p.sub{color:var(--grey);margin-bottom:24px}
+#screen-login .box{width:100%;max-width:360px}
+#screen-login label{display:block;text-align:left;color:var(--gold);font-weight:600;margin-bottom:6px}
+#screen-login input{width:100%;padding:14px;border-radius:12px;border:2px solid var(--green);background:#fff;color:#000;text-align:center;font-size:18px}
+#screen-login .btn{width:100%;margin-top:14px}
+#screen-login .note{font-size:13px;color:var(--grey);margin-top:14px;line-height:1.4}
+#screen-login .err{color:var(--red);margin-top:10px;font-weight:600}
+/* Buttons */
+.btn{background:var(--green);color:#000;border:none;border-radius:12px;padding:14px 18px;font-size:17px;font-weight:800}
+.btn.gold{background:var(--gold)}
+.btn.ghost{background:#2a2a2a;color:#fff;border:1px solid #444}
+.btn.small{padding:9px 12px;font-size:14px;border-radius:10px}
+.btn.block{width:100%}
+.btn:disabled{opacity:.45}
+/* Strip */
+#strip{position:sticky;top:0;z-index:10;height:48px;background:#000;border-bottom:1px solid #2a2a2a;display:flex;align-items:center;justify-content:space-between;padding:0 10px;font-size:13px;gap:6px}
+#strip b{color:var(--gold)}
+#strip span{white-space:nowrap}
+/* Header / screens */
+.wrap{padding:14px 12px 90px}
+header.app{display:flex;align-items:center;gap:10px;padding:12px}
+header.app img{width:52px;height:52px;object-fit:cover;border-radius:10px}
+header.app h2{font-size:20px;line-height:1.1}
+header.app h2 small{display:block;color:var(--grey);font-size:12px;font-weight:400}
+header.app .sp{flex:1}
+h3.sec{margin:18px 0 8px;font-size:17px}
+.card{background:var(--card);border:1px solid #2c2c2c;border-radius:14px;padding:12px;margin-bottom:12px}
+.row{display:flex;gap:8px;align-items:center}
+.row .grow{flex:1}
+input[type=text],input[type=number],input[type=password],input[type=time]{width:100%;padding:11px;border-radius:10px;border:1px solid #444;background:#fff;color:#000}
+label.f{display:block;font-size:13px;color:var(--grey);margin:8px 0 4px}
+/* Accounts */
+.acct-num{font-size:26px;font-weight:900;color:var(--green-bright)}
+.acct-total{font-size:20px}
+.pill{display:inline-block;padding:3px 9px;border-radius:20px;font-size:12px;font-weight:700;background:#333}
+.pill.paid{background:var(--green);color:#000}
+.pill.credit{background:var(--gold);color:#000}
+.pill.gift{background:var(--pink);color:#000}
+.item{display:flex;align-items:center;gap:6px;padding:8px 0;border-top:1px solid #2c2c2c}
+.item .nm{flex:1}
+.item .nm small{display:block;color:var(--grey)}
+.qty{display:flex;align-items:center;gap:6px}
+.qty button{width:34px;height:34px;border-radius:9px;border:none;background:#333;color:#fff;font-size:18px;font-weight:800}
+.qty span{min-width:22px;text-align:center;font-weight:700}
+.quick{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.quick button{background:#262626;color:#fff;border:1px solid #3a3a3a;border-radius:11px;padding:11px 6px;font-size:14px;font-weight:700;text-align:left}
+.quick button b{color:var(--gold);float:right}
+.manual{display:flex;gap:6px;margin-top:8px}
+.manual input{flex:1;min-width:0}
+.closebtns{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:10px}
+.closebtns button{border:none;border-radius:11px;padding:12px 4px;font-weight:800;font-size:14px}
+.b-paid{background:var(--green);color:#000}
+.b-credit{background:var(--gold);color:#000}
+.b-gift{background:var(--pink);color:#000}
+.methods{display:flex;gap:8px;margin-top:8px}
+.methods button{flex:1;padding:11px 4px;border-radius:10px;border:1px solid #444;background:#262626;color:#fff;font-weight:700}
+.methods button.on{background:var(--green);color:#000;border-color:var(--green)}
+/* Kilos picker: dos conceptos — por precio (botones, sin escribir) y por peso (porción + precio a mano) */
+.kilos-panel{margin-top:10px;background:#222;border:1px solid #3a3a3a;border-radius:11px;padding:10px}
+.kilos-panel .lbl{font-size:13px;color:var(--grey);margin:8px 0 4px}
+.kilos-panel .lbl:first-child{margin-top:0}
+.kilos-panel input{width:100%;padding:12px;border-radius:10px;border:1px solid #444;background:#111;color:#fff;font-size:16px;font-weight:700;margin-top:6px}
+.kilos-panel .sub{font-size:12px;color:var(--grey);margin-top:2px}
+.pick-row{display:flex;flex-wrap:wrap;gap:6px}
+.pick-row button{flex:1 1 auto;min-width:64px;padding:11px 6px;border-radius:10px;border:1px solid #444;background:#262626;color:#fff;font-weight:700;font-size:14px}
+.pick-row button.on{background:var(--green);color:#000;border-color:var(--green)}
+/* Bottom nav */
+nav.bottom{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:560px;background:#000;border-top:1px solid #2a2a2a;display:flex;z-index:10}
+nav.bottom button{flex:1;background:none;border:none;color:var(--grey);padding:12px 2px 14px;font-size:12px;font-weight:700}
+nav.bottom button.on{color:var(--green-bright)}
+/* Closing sheet (white) */
+#sheet{background:#fff;color:#111;border-radius:8px;padding:20px 16px;margin:12px}
+#sheet img.camion{width:100%;border-radius:10px}
+#sheet img.logo2{width:130px;display:block;margin:10px auto 4px;border-radius:10px}
+#sheet h2{text-align:center;font-size:24px}
+#sheet .tagline{text-align:center;color:#555;font-size:13px;margin:4px 0 14px}
+#sheet table{width:100%;border-collapse:collapse;font-size:15px;margin:8px 0}
+#sheet td,#sheet th{padding:6px 4px;border-bottom:1px solid #ddd;text-align:left}
+#sheet td:last-child,#sheet th:last-child{text-align:right}
+#sheet h3{margin:16px 0 4px;font-size:17px;border-bottom:2px solid var(--green);padding-bottom:4px}
+#sheet .total-band{background:#111;color:#fff;border-radius:8px;padding:12px;text-align:center;font-size:19px;margin-top:14px}
+#sheet .total-band b{color:var(--gold)}
+.bar-row{display:flex;align-items:flex-end;gap:4px;height:110px;padding-top:8px}
+.bar-col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}
+.bar{width:100%;max-width:34px;background:var(--green);border-radius:4px 4px 0 0}
+.bar.best{background:var(--gold)}
+.bar-col span{font-size:10px;margin-top:3px;color:#444}
+@media print{
+  body{background:#fff;max-width:none}
+  nav.bottom,#strip,header.app,.noprint{display:none!important}
+  #sheet{margin:0}
+  .wrap{padding:0}
+}
+</style>
+</head>
+<body>
+
+<!-- LOGIN / FIRST-RUN SETUP -->
+<section id="screen-login">
+  <img class="logo" src="assets/logo-cerdo.jpg" alt="Carnitas el Serrano">
+  <h1>Carnitas <b>el Serrano</b></h1>
+  <p class="sub">Control diario de ventas</p>
+  <div class="box">
+    <div id="setup-note" class="note hidden" style="color:var(--gold);font-size:14px;margin-bottom:12px">Primera vez en este aparato: tú, el dueño, crea aquí la contraseña del personal. Esa será la contraseña que el personal usará para entrar. Guárdala bien, solo se guarda en este aparato.</div>
+    <label id="pw-label" for="pw">Contraseña del personal</label>
+    <input type="password" id="pw" placeholder="Escribe la contraseña" autocomplete="off">
+    <input type="password" id="pw2" class="hidden" placeholder="Repite la contraseña" autocomplete="off" style="margin-top:8px">
+    <button class="btn" id="btn-login">Entrar</button>
+    <div class="err hidden" id="pw-err"></div>
+    <p class="note">Solo el personal con la contraseña entra a las ventas. La contraseña se guarda únicamente en este aparato.</p>
+  </div>
+</section>
+
+<!-- APP -->
+<div id="app" class="hidden">
+  <div id="strip"><span>Vendido hoy <b id="st-sold">$0</b></span><span>En caja <b id="st-cash">$0</b></span><span>Cuentas abiertas <b id="st-open">0</b></span></div>
+  <header class="app">
+    <img src="assets/logo-cerdo.jpg" alt="logo">
+    <h2>Carnitas el Serrano<small id="hdr-date"></small></h2>
+    <span class="sp"></span>
+    <button class="btn ghost small" id="btn-lock">Salir</button>
+  </header>
+
+  <!-- START DAY -->
+  <div id="view-start" class="wrap hidden">
+    <div class="card">
+      <h3>Iniciar el día</h3>
+      <p style="color:var(--grey);font-size:14px;margin:6px 0 10px">Primero registra el fondo de caja. Sin fondo no se puede continuar.</p>
+      <label class="f" for="fondo">Fondo de caja (MXN)</label>
+      <input type="number" id="fondo" min="0" step="1" inputmode="decimal" placeholder="Ej. 500">
+      <div class="err hidden" id="fondo-err" style="color:var(--red);font-weight:600;margin-top:8px">Sin fondo de caja no se puede continuar</div>
+      <button class="btn block" id="btn-start" style="margin-top:14px">Iniciar el día</button>
+    </div>
+    <div class="card">
+      <h3>Días anteriores</h3>
+      <div id="hist-start"></div>
+    </div>
+  </div>
+
+  <!-- DAY -->
+  <div id="view-day" class="wrap hidden">
+    <div class="card row">
+      <div class="grow"><b>Fondo de caja</b><br><span class="money" id="day-fondo">$0</span> <small style="color:var(--grey)" id="day-opened"></small></div>
+      <button class="btn ghost small" id="btn-edit-fondo">✎ Editar fondo</button>
+      <button class="btn gold" id="btn-new-acct">+ Nueva cuenta</button>
+    </div>
+    <div class="card hidden" id="fondo-edit">
+      <label class="f" for="fondo-edit-input">Corregir fondo de caja (MXN)</label>
+      <input type="number" id="fondo-edit-input" min="0" step="1" inputmode="decimal">
+      <div class="err hidden" id="fondo-edit-err" style="color:var(--red);font-weight:600;margin-top:8px">El fondo debe ser mayor a $0</div>
+      <div class="row" style="margin-top:10px">
+        <button class="btn gold" id="btn-save-fondo">Guardar</button>
+        <button class="btn ghost" id="btn-cancel-fondo">Cancelar</button>
+      </div>
+    </div>
+    <div id="accounts"></div>
+    <h3 class="sec">Gastos del día</h3>
+    <div class="card">
+      <div class="row"><input type="text" id="exp-desc" placeholder="Descripción del gasto"><input type="number" id="exp-amt" min="0" step="1" placeholder="$" style="max-width:100px"></div>
+      <button class="btn ghost block" id="btn-add-exp" style="margin-top:8px">Agregar gasto</button>
+      <div id="expenses"></div>
+      <div style="margin-top:8px">Total gastos: <b class="money" id="exp-total">$0</b></div>
+    </div>
+    <button class="btn gold block" id="btn-go-close" style="margin-top:8px">Cierre del día</button>
+  </div>
+
+  <!-- CLOSE -->
+  <div id="view-close" class="wrap hidden">
+    <div class="card">
+      <h3>Cierre del día</h3>
+      <p>Vendido: <b class="money" id="cl-sold">$0</b></p>
+      <p>Debe haber en caja: <b class="money" id="cl-cash">$0</b></p>
+      <p>Pendiente por cobrar: <b class="money" id="cl-credit">$0</b></p>
+      <p>Obsequios: <b class="money" id="cl-gift">$0</b></p>
+      <div id="cl-warn" style="color:var(--red);font-weight:600;margin-top:8px"></div>
+      <button class="btn gold block" id="btn-confirm-close" style="margin-top:12px">Confirmar cierre y ver hoja</button>
+      <button class="btn ghost block" id="btn-back-day" style="margin-top:8px">Volver al día</button>
+    </div>
+  </div>
+
+  <!-- HISTORY -->
+  <div id="view-hist" class="wrap hidden">
+    <h3 class="sec">Días anteriores</h3>
+    <div id="hist-list"></div>
+  </div>
+
+  <!-- SHEET -->
+  <div id="view-sheet" class="wrap hidden">
+    <div class="noprint" style="display:flex;gap:8px;margin-bottom:10px">
+      <button class="btn gold" id="btn-print" style="flex:1">Imprimir / Guardar PDF</button>
+      <button class="btn ghost" id="btn-sheet-back">Volver</button>
+    </div>
+    <div id="sheet"></div>
+  </div>
+
+  <nav class="bottom">
+    <button id="nav-day" class="on">Día</button>
+    <button id="nav-close">Cierre</button>
+    <button id="nav-hist">Días anteriores</button>
+  </nav>
+</div>
+
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const fmt=n=>"$"+(Math.round(n*100)/100).toLocaleString("es-MX",{minimumFractionDigits:0,maximumFractionDigits:2});
+const LS_PW="carnitas_staff_pw", LS_CUR="carnitas_current_day", LS_HIST="carnitas_history";
+const QUICK=[{k:"taco",n:"Taco",p:30},{k:"agua",n:"Agua",p:35},{k:"refresco",n:"Refresco",p:35}];
+function nowTime(){const d=new Date();return d.toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit",hour12:false,timeZone:"America/Cancun"});}
+function todayStr(){return new Date().toLocaleDateString("es-MX",{timeZone:"America/Cancun",weekday:"long",day:"numeric",month:"long",year:"numeric"});}
+function load(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch(e){return d;}}
+function save(k,v){localStorage.setItem(k,JSON.stringify(v));}
+let day=load(LS_CUR,null);
+let hist=load(LS_HIST,[]);
+let closingSheet=null; // closed day object being viewed
+/* Kilos picker selection per account (keyed by account number, not saved): {open, kg, price, msg} */
+const kiloSel={};
+/* Payment-method picker per account (keyed by account number, not saved): true = panel visible */
+const paySel={};
+
+/* ---------- Login / first-run setup ---------- */
+const hasPw=()=>!!localStorage.getItem(LS_PW);
+function initLogin(){
+  if(!hasPw()){
+    $("setup-note").classList.remove("hidden");
+    $("pw2").classList.remove("hidden");
+    $("btn-login").textContent="Crear contraseña del personal";
+    $("pw-label").textContent="Crea la contraseña del personal";
+  }
+}
+$("btn-login").onclick=()=>{
+  const p=$("pw").value.trim(), p2=$("pw2").value.trim(), err=$("pw-err");
+  err.classList.add("hidden");
+  if(!hasPw()){
+    if(p.length<4){err.textContent="La contraseña debe tener al menos 4 caracteres.";err.classList.remove("hidden");return;}
+    if(p!==p2){err.textContent="Las contraseñas no coinciden.";err.classList.remove("hidden");return;}
+    localStorage.setItem(LS_PW,p);
+    enterApp();
+  }else{
+    if(p===localStorage.getItem(LS_PW)){enterApp();}
+    else{err.textContent="Contraseña incorrecta.";err.classList.remove("hidden");}
+  }
+};
+$("pw").addEventListener("keydown",e=>{if(e.key==="Enter")$("btn-login").click();});
+$("btn-lock").onclick=()=>{location.reload();};
+
+/* ---------- App entry / views ---------- */
+function enterApp(){
+  $("screen-login").classList.add("hidden");
+  $("app").classList.remove("hidden");
+  $("hdr-date").textContent=todayStr();
+  if(day){showView("day");}else{showView("start");}
+  renderAll();
+}
+function showView(v){
+  ["start","day","close","hist","sheet"].forEach(x=>$("view-"+x).classList.toggle("hidden",x!==v));
+  $("nav-day").classList.toggle("on",v==="day");
+  $("nav-close").classList.toggle("on",v==="close");
+  $("nav-hist").classList.toggle("on",v==="hist"||v==="sheet");
+  if(v==="hist")renderHist();
+  if(v==="close")renderClose();
+  window.scrollTo(0,0);
+}
+$("nav-day").onclick=()=>{if(day)showView("day");else showView("start");};
+$("nav-close").onclick=()=>{if(day)showView("close");};
+$("nav-hist").onclick=()=>showView("hist");
+$("btn-back-day").onclick=()=>showView("day");
+$("btn-sheet-back").onclick=()=>{closingSheet?showView("hist"):showView("day");};
+$("btn-print").onclick=()=>window.print();
+
+/* ---------- Start day ---------- */
+$("btn-start").onclick=()=>{
+  const f=parseFloat($("fondo").value);
+  if(!f||f<=0){$("fondo-err").classList.remove("hidden");return;}
+  $("fondo-err").classList.add("hidden");
+  day={date:todayStr(),fondo:f,openedAt:nowTime(),accounts:[],expenses:[],closed:false};
+  save(LS_CUR,day);
+  showView("day");renderAll();
+};
+
+/* ---------- Money math (single source) ---------- */
+function acctTotal(a){return a.items.reduce((s,i)=>s+i.qty*i.price,0);}
+function soldTotal(d){return d.accounts.filter(a=>a.status==="paid").reduce((s,a)=>s+acctTotal(a),0);}
+function cashSales(d){return d.accounts.filter(a=>a.status==="paid"&&a.method==="efectivo").reduce((s,a)=>s+acctTotal(a),0);}
+function expTotal(d){return d.expenses.reduce((s,e)=>s+e.amount,0);}
+function expectedCash(d){return d.fondo+cashSales(d)-expTotal(d);}
+function creditTotal(d){return d.accounts.filter(a=>a.status==="credit").reduce((s,a)=>s+acctTotal(a),0);}
+function giftTotal(d){return d.accounts.filter(a=>a.status==="gift").reduce((s,a)=>s+acctTotal(a),0);}
+function openCount(d){return d.accounts.filter(a=>a.status==="open").length;}
+
+/* ---------- Editar fondo (corrige el monto, no cambia la hora de apertura) ---------- */
+$("btn-edit-fondo").onclick=()=>{
+  if(!day)return;
+  $("fondo-edit-input").value=day.fondo;
+  $("fondo-edit-err").classList.add("hidden");
+  $("fondo-edit").classList.remove("hidden");
+  $("fondo-edit-input").focus();
+};
+$("btn-cancel-fondo").onclick=()=>{$("fondo-edit").classList.add("hidden");};
+$("btn-save-fondo").onclick=()=>{
+  if(!day)return;
+  const v=parseFloat($("fondo-edit-input").value);
+  if(!v||v<=0){$("fondo-edit-err").classList.remove("hidden");return;}
+  day.fondo=v; /* openedAt no se toca */
+  save(LS_CUR,day);
+  $("fondo-edit").classList.add("hidden");
+  renderAll();
+};
+
+/* ---------- Accounts ---------- */
+$("btn-new-acct").onclick=()=>{
+  const n=day.accounts.length?Math.max(...day.accounts.map(a=>a.num))+1:1;
+  day.accounts.push({num:n,items:[],status:"open",method:null,ref:"",paidAt:null});
+  save(LS_CUR,day);renderAll();
+};
+function addItem(acctIdx,prod){
+  const a=day.accounts[acctIdx];
+  if(a.status!=="open")return;
+  const ex=a.items.find(i=>i.k===prod.k);
+  if(ex)ex.qty++;else a.items.push({k:prod.k,n:prod.n,qty:1,price:prod.p,kg:null});
+  save(LS_CUR,day);renderAll();
+}
+function addManual(acctIdx,kind){
+  const a=day.accounts[acctIdx];
+  if(a.status!=="open")return;
+  if(kind==="tortillas"){
+    const p=parseFloat(prompt("Precio total de las tortillas ($):","25"));
+    if(!p||p<=0)return;
+    a.items.push({k:"tortillas",n:"Tortillas",qty:1,price:p,kg:null});
+  }else{
+    const desc=prompt("Descripción:","");
+    if(!desc)return;
+    const p=parseFloat(prompt("Precio ($):",""));
+    if(!p||p<=0)return;
+    a.items.push({k:"otro",n:desc,qty:1,price:p,kg:null});
+  }
+  save(LS_CUR,day);renderAll();
+}
+function closeAccount(acctIdx,status,method){
+  const a=day.accounts[acctIdx];
+  if(status==="paid"){
+    /* El método de pago llega por botones (Efectivo / Tarjeta / Transferencia), nunca se escribe. */
+    if(!["efectivo","tarjeta","transferencia"].includes(method))return;
+    a.method=method;
+  }else{
+    a.ref=prompt(status==="credit"?"Crédito ¿a quién? (opcional)":"Obsequio ¿para quién / por qué? (opcional)","")||"";
+    a.method=null;
+  }
+  a.status=status;a.paidAt=nowTime();
+  delete paySel[a.num];
+  save(LS_CUR,day);renderAll();
+}
+function reopenAccount(acctIdx){
+  const a=day.accounts[acctIdx];
+  if(a.status==="paid")return;
+  a.status="open";a.paidAt=null;a.ref="";
+  save(LS_CUR,day);renderAll();
+}
+function renderAccounts(){
+  const el=$("accounts");el.innerHTML="";
+  if(!day.accounts.length){el.innerHTML='<div class="card" style="color:var(--grey)">Aún no hay cuentas. Toca “+ Nueva cuenta”.</div>';return;}
+  day.accounts.forEach((a,ai)=>{
+    const locked=a.status!=="open";
+    const sel=kiloSel[a.num]||(kiloSel[a.num]={open:false,kg:null,price:null,msg:""});
+    const div=document.createElement("div");div.className="card";
+    let statusPill=a.status==="open"?'<span class="pill">Abierta</span>'
+      :a.status==="paid"?'<span class="pill paid">Pagada · '+(a.method||"")+'</span>'
+      :a.status==="credit"?'<span class="pill credit">Crédito</span>':'<span class="pill gift">Obsequio</span>';
+    let h='<div class="row"><span class="acct-num">Cuenta '+a.num+'</span>'+statusPill+'<span class="sp" style="flex:1"></span><span class="acct-total money">'+fmt(acctTotal(a))+'</span></div>';
+    if(a.ref)h+='<div style="color:var(--grey);font-size:13px;margin-top:4px">Ref: '+escapeHtml(a.ref)+'</div>';
+    if(a.paidAt)h+='<div style="color:var(--grey);font-size:13px">Hora: '+a.paidAt+'</div>';
+    h+='<div class="items"></div>';
+    if(!locked){
+      h+='<div class="quick">'
+        +QUICK.map(q=>'<button data-q="'+q.k+'">'+q.n+' <b>'+fmt(q.p)+'</b></button>').join("")
+        +'<button data-m="tortillas">Tortillas <b>manual</b></button>'
+        +'<button data-m="kilos">Kilos</button>'
+        +'<button data-m="otro">Otro <b>manual</b></button></div>';
+      h+='<div class="closebtns"><button class="b-paid" data-c="paid">Pagado</button><button class="b-credit" data-c="credit">Crédito</button><button class="b-gift" data-c="gift">Obsequio</button></div>';
+      /* Pago: al tocar Pagado se abren solo botones de método, no se escribe nada. */
+      h+='<div class="methods'+(paySel[a.num]?"":" hidden")+'">'
+        +'<button data-method="efectivo">Efectivo</button>'
+        +'<button data-method="tarjeta">Tarjeta</button>'
+        +'<button data-method="transferencia">Transferencia</button></div>'
+        +(paySel[a.num]?'<button class="btn ghost small" data-cancel-pay="1" style="margin-top:8px">Cancelar</button>':'');
+      /* Kilos: DOS conceptos separados.
+         1) Por precio: los botones de $ agregan el ítem de inmediato, sin kg.
+         2) Por peso: se elige la porción y luego se escribe SOLO el precio (varía por corte: surtida, maciza, huesitos) y se toca Agregar. */
+      const kgBtns=[["0.25","1/4 kg"],["0.5","1/2 kg"],["0.75","3/4 kg"],["1","1 kg"]].map(([v,l])=>'<button data-kg="'+v+'" class="'+(sel.kg===parseFloat(v)?"on":"")+'">'+l+'</button>').join("");
+      const priceBtns=[50,100,150,200,250,300,350,400].map(p=>'<button data-kilo-price="'+p+'">$'+p+'</button>').join("");
+      let kiloPanel='<div class="kilos-panel'+(sel.open?"":" hidden")+'">'
+        +'<div class="lbl">Por precio — dame $ de carnitas:</div><div class="pick-row">'+priceBtns+'</div>'
+        +'<div class="lbl">Por peso — elige la cantidad:</div><div class="pick-row">'+kgBtns+'</div>';
+      if(sel.kg){
+        kiloPanel+='<input class="kilo-price-input" type="number" inputmode="decimal" min="1" step="1" placeholder="Precio $ (según el corte)" value="'+(sel.price||"")+'">'
+          +'<div class="sub">El precio cambia según el corte: surtida, maciza o huesitos.</div>'
+          +'<button class="btn gold block" data-add-kilo="1" style="margin-top:10px">Agregar</button>';
+      }
+      kiloPanel+='<div class="kilos-msg" style="color:var(--red);font-weight:600;font-size:13px;margin-top:6px;min-height:16px">'+escapeHtml(sel.msg||"")+'</div></div>';
+      h+=kiloPanel;
+    }else if(a.status!=="paid"){
+      h+='<button class="btn ghost small" data-reopen="1" style="margin-top:10px">Reabrir cuenta</button>';
+    }
+    div.innerHTML=h;
+    const itemsEl=div.querySelector(".items");
+    a.items.forEach((it,ii)=>{
+      const row=document.createElement("div");row.className="item";
+      const label=it.k==="kilos"&&it.kg?it.n+" · "+it.kg+" kg":it.n;
+      row.innerHTML='<span class="nm">'+escapeHtml(label)+'<small>'+fmt(it.price)+' c/u</small></span>'
+        +(locked?'<span><b>x'+it.qty+'</b> · '+fmt(it.qty*it.price)+'</span>'
+        :'<span class="qty"><button data-dec="1">−</button><span>'+it.qty+'</span><button data-inc="1">+</button></span><b>'+fmt(it.qty*it.price)+'</b><button class="btn ghost small" data-del="1">✕</button>');
+      if(!locked){
+        row.querySelector("[data-inc]").onclick=()=>{it.qty++;save(LS_CUR,day);renderAll();};
+        row.querySelector("[data-dec]").onclick=()=>{it.qty--;if(it.qty<=0)a.items.splice(ii,1);save(LS_CUR,day);renderAll();};
+        row.querySelector("[data-del]").onclick=()=>{a.items.splice(ii,1);save(LS_CUR,day);renderAll();};
+      }
+      itemsEl.appendChild(row);
+    });
+    if(!locked){
+      div.querySelectorAll("[data-q]").forEach(b=>b.onclick=()=>addItem(ai,QUICK.find(q=>q.k===b.dataset.q)));
+      div.querySelectorAll("[data-m]").forEach(b=>b.onclick=()=>{
+        if(b.dataset.m==="kilos"){const s=kiloSel[a.num];s.open=!s.open;s.msg="";renderAll();}
+        else addManual(ai,b.dataset.m);
+      });
+      div.querySelectorAll("[data-c]").forEach(b=>b.onclick=()=>{
+        if(b.dataset.c==="paid"){paySel[a.num]=true;renderAll();}
+        else closeAccount(ai,b.dataset.c);
+      });
+      div.querySelectorAll("[data-method]").forEach(b=>b.onclick=()=>closeAccount(ai,"paid",b.dataset.method));
+      const cp=div.querySelector("[data-cancel-pay]");if(cp)cp.onclick=()=>{delete paySel[a.num];renderAll();};
+      div.querySelectorAll("[data-kg]").forEach(b=>b.onclick=()=>{const s=kiloSel[a.num];s.kg=parseFloat(b.dataset.kg);s.price=null;s.msg="";renderAll();});
+      /* Por precio: el botón agrega el ítem de inmediato, sin kg. */
+      div.querySelectorAll("[data-kilo-price]").forEach(b=>b.onclick=()=>{
+        const p=parseInt(b.dataset.kiloPrice,10);
+        a.items.push({k:"kilos",n:"Carnitas (por precio)",qty:1,price:p,kg:null});
+        save(LS_CUR,day);renderAll();
+      });
+      const kiloInput=div.querySelector(".kilo-price-input");
+      if(kiloInput)kiloInput.oninput=()=>{kiloSel[a.num].price=parseFloat(kiloInput.value);};
+      const addK=div.querySelector("[data-add-kilo]");
+      if(addK)addK.onclick=()=>{
+        const s=kiloSel[a.num];
+        if(!s.kg||!s.price||s.price<=0){s.msg="Elige la cantidad y pon el precio";renderAll();return;}
+        a.items.push({k:"kilos",n:"Carnitas (kilos)",qty:1,price:s.price,kg:s.kg});
+        s.kg=null;s.price=null;s.msg="";s.open=true;
+        save(LS_CUR,day);renderAll();
+      };
+    }else{
+      const rb=div.querySelector("[data-reopen]");if(rb)rb.onclick=()=>reopenAccount(ai);
+    }
+    el.appendChild(div);
+  });
+}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+
+/* ---------- Expenses ---------- */
+$("btn-add-exp").onclick=()=>{
+  const d=$("exp-desc").value.trim(), amt=parseFloat($("exp-amt").value);
+  if(!d||!amt||amt<=0){alert("Escribe la descripción y el monto del gasto.");return;}
+  day.expenses.push({desc:d,amount:amt,time:nowTime()});
+  $("exp-desc").value="";$("exp-amt").value="";
+  save(LS_CUR,day);renderAll();
+};
+function renderExpenses(){
+  const el=$("expenses");el.innerHTML="";
+  day.expenses.forEach((e,i)=>{
+    const r=document.createElement("div");r.className="item";
+    r.innerHTML='<span class="nm">'+escapeHtml(e.desc)+'<small>'+e.time+'</small></span><b>'+fmt(e.amount)+'</b>';
+    const b=document.createElement("button");b.className="btn ghost small";b.textContent="✕";
+    b.onclick=()=>{day.expenses.splice(i,1);save(LS_CUR,day);renderAll();};
+    r.appendChild(b);el.appendChild(r);
+  });
+  $("exp-total").textContent=fmt(expTotal(day));
+}
+
+/* ---------- Close ---------- */
+$("btn-go-close").onclick=()=>showView("close");
+function renderClose(){
+  if(!day)return;
+  $("cl-sold").textContent=fmt(soldTotal(day));
+  $("cl-cash").textContent=fmt(expectedCash(day));
+  $("cl-credit").textContent=fmt(creditTotal(day));
+  $("cl-gift").textContent=fmt(giftTotal(day));
+  const openWith=day.accounts.filter(a=>a.status==="open"&&a.items.length>0);
+  $("cl-warn").textContent=openWith.length?("No se puede cerrar: hay "+openWith.length+" cuenta(s) abierta(s) con productos: "+openWith.map(a=>"Cuenta "+a.num).join(", ")+"."):"";
+  $("btn-confirm-close").disabled=openWith.length>0;
+}
+$("btn-confirm-close").onclick=()=>{
+  const openWith=day.accounts.filter(a=>a.status==="open"&&a.items.length>0);
+  if(openWith.length){alert("Hay cuentas abiertas con productos. Ciérralas primero.");return;}
+  const closed={...day,closed:true,closedAt:nowTime(),accounts:day.accounts.filter(a=>!(a.status==="open"&&a.items.length===0))};
+  hist.unshift(closed);
+  save(LS_HIST,hist);
+  day=null;localStorage.removeItem(LS_CUR);
+  closingSheet=closed;
+  renderSheet(closed);
+  showView("sheet");renderAll();
+};
+
+/* ---------- Closing sheet ---------- */
+function productTotals(d){
+  const t={tacos:0,refrescos:0,aguas:0,tortillas:0,otros:0,kilosPorciones:0,kilosKg:0};
+  d.accounts.forEach(a=>a.items.forEach(it=>{
+    if(it.k==="taco")t.tacos+=it.qty;
+    else if(it.k==="refresco")t.refrescos+=it.qty;
+    else if(it.k==="agua")t.aguas+=it.qty;
+    else if(it.k==="tortillas")t.tortillas+=it.qty;
+    else if(it.k==="kilos"){if(it.kg){t.kilosPorciones+=it.qty;t.kilosKg+=it.kg||0;}}
+    else t.otros+=it.qty;
+  }));
+  return t;
+}
+function byMethod(d){
+  const m={efectivo:0,tarjeta:0,transferencia:0};
+  d.accounts.filter(a=>a.status==="paid").forEach(a=>{m[a.method]=(m[a.method]||0)+acctTotal(a);});
+  return m;
+}
+function hourly(d){
+  const h={};d.accounts.filter(a=>a.paidAt).forEach(a=>{const hr=a.paidAt.slice(0,2);h[hr]=(h[hr]||0)+acctTotal(a);});
+  return h;
+}
+function renderSheet(d){
+  const t=productTotals(d), m=byMethod(d), h=hourly(d);
+  const hrs=Object.keys(h).sort();
+  const maxH=hrs.length?Math.max(...hrs.map(k=>h[k])):0;
+  const saleTimes=d.accounts.filter(a=>a.paidAt).map(a=>a.paidAt).sort();
+  const rows=(list,status)=>list.map(a=>"<tr><td>Cuenta "+a.num+"</td><td>"+escapeHtml(a.ref||"—")+"</td><td>"+fmt(acctTotal(a))+"</td></tr>").join("");
+  $("sheet").innerHTML=
+    '<img class="camion" src="assets/camion.jpg" alt="Camión Carnitas el Serrano">'
+    +'<img class="logo2" src="assets/logo-cerdo.jpg" alt="Carnitas el Serrano">'
+    +'<h2>Carnitas el Serrano</h2><p class="tagline">¡Súbale, súbale, hay lugares! · Se cierra el día…</p>'
+    +'<p style="text-align:center">'+escapeHtml(d.date)+'</p>'
+    +'<h3>Resumen</h3><table>'
+    +'<tr><td>Fondo de caja</td><td>'+fmt(d.fondo)+'</td></tr>'
+    +'<tr><td>Vendido</td><td>'+fmt(soldTotal(d))+'</td></tr>'
+    +'<tr><td>Efectivo</td><td>'+fmt(m.efectivo||0)+'</td></tr>'
+    +'<tr><td>Tarjeta</td><td>'+fmt(m.tarjeta||0)+'</td></tr>'
+    +'<tr><td>Transferencia</td><td>'+fmt(m.transferencia||0)+'</td></tr>'
+    +'<tr><td>Gastos</td><td>− '+fmt(expTotal(d))+'</td></tr>'
+    +'<tr><td>Pendiente por cobrar (crédito)</td><td>'+fmt(creditTotal(d))+'</td></tr>'
+    +'<tr><td>Obsequios</td><td>'+fmt(giftTotal(d))+'</td></tr>'
+    +'</table><div class="total-band">En caja debe haber: <b>'+fmt(expectedCash(d))+'</b></div>'
+    +'<h3>Lo que se vendió</h3><table>'
+    +'<tr><td>Tacos</td><td>'+t.tacos+'</td></tr>'
+    +'<tr><td>Refrescos</td><td>'+t.refrescos+'</td></tr>'
+    +'<tr><td>Aguas</td><td>'+t.aguas+'</td></tr>'
+    +'<tr><td>Tortillas</td><td>'+t.tortillas+'</td></tr>'
+    +'<tr><td>Kilos (porciones)</td><td>'+t.kilosPorciones+'</td></tr>'
+    +'<tr><td>Kilos (kg)</td><td>'+t.kilosKg.toLocaleString("es-MX")+' kg</td></tr>'
+    +'<tr><td>Otros</td><td>'+t.otros+'</td></tr></table>'
+    +'<h3>Crédito pendiente</h3><table>'+(d.accounts.some(a=>a.status==="credit")?rows(d.accounts.filter(a=>a.status==="credit")):"<tr><td>Nada pendiente</td><td>$0</td></tr>")+'</table>'
+    +'<h3>Obsequios</h3><table>'+(d.accounts.some(a=>a.status==="gift")?rows(d.accounts.filter(a=>a.status==="gift")):"<tr><td>Ninguno</td><td>$0</td></tr>")+'</table>'
+    +'<h3>Horarios de venta</h3>'
+    +(hrs.length?'<div class="bar-row">'+hrs.map(k=>'<div class="bar-col"><div class="bar'+(h[k]===maxH?" best":"")+'" style="height:'+Math.max(6,Math.round(h[k]/maxH*80))+'px"></div><span>'+k+':00</span><span>'+fmt(h[k])+'</span></div>').join("")+'</div><p style="font-size:13px;color:#555">Hora más fuerte: '+hrs.find(k=>h[k]===maxH)+':00</p>':"<p>No hubo ventas por hora registradas.</p>")
+    +'<h3>Horarios del servicio</h3><table>'
+    +'<tr><td>Apertura (fondo)</td><td>'+d.openedAt+'</td></tr>'
+    +'<tr><td>Primera venta</td><td>'+(saleTimes[0]||"—")+'</td></tr>'
+    +'<tr><td>Última venta</td><td>'+(saleTimes[saleTimes.length-1]||"—")+'</td></tr>'
+    +'<tr><td>Cierre</td><td>'+(d.closedAt||"—")+'</td></tr></table>'
+    +'<h3>Gastos</h3><table>'+(d.expenses.length?d.expenses.map(e=>"<tr><td>"+escapeHtml(e.desc)+"</td><td>"+fmt(e.amount)+"</td></tr>").join(""):"<tr><td>Sin gastos</td><td>$0</td></tr>")+'</table>';
+}
+
+/* ---------- History ---------- */
+/* Reabrir el día cerrado de HOY: solo el día de hoy se puede reabrir.
+   Los días de fechas anteriores son de solo lectura. */
+function reopenDay(idx){
+  const d=hist[idx];
+  if(!d)return;
+  if(d.date!==todayStr()){alert("Solo se puede reabrir el día de hoy.");return;}
+  if(day){alert("Ya hay un día abierto. Ciérralo primero para poder reabrir el día de hoy.");return;}
+  if(!confirm("¿Reabrir el día de hoy?\n\nEl día cerrado de hoy volverá a estar abierto con sus cuentas, gastos y fondo, tal como quedó al cerrarlo. Podrás meter otra venta y volver a cerrarlo."))return;
+  // Quitarlo del historial para que al volver a cerrarlo no se duplique.
+  hist.splice(idx,1);
+  save(LS_HIST,hist);
+  day=JSON.parse(JSON.stringify(d));
+  day.closed=false;
+  delete day.closedAt;
+  closingSheet=null;
+  save(LS_CUR,day);
+  showView("day");renderAll();
+}
+function buildHistEntry(d,i){
+  const wrap=document.createElement("div");
+  wrap.style.marginBottom="8px";
+  const b=document.createElement("button");b.className="btn ghost block";b.style.textAlign="left";
+  b.textContent=d.date+" · Vendido "+fmt(soldTotal(d))+" · En caja "+fmt(expectedCash(d));
+  b.onclick=()=>{closingSheet=d;renderSheet(d);showView("sheet");};
+  wrap.appendChild(b);
+  if(d.date===todayStr()){
+    const r=document.createElement("button");r.className="btn gold block";r.style.marginTop="6px";
+    r.textContent="Reabrir el día";
+    r.onclick=()=>reopenDay(i);
+    wrap.appendChild(r);
+  }
+  return wrap;
+}
+function renderHist(){
+  const el=$("hist-list");el.innerHTML="";
+  const el2=$("hist-start");if(el2)el2.innerHTML="";
+  if(!hist.length){el.innerHTML='<div class="card" style="color:var(--grey)">Aún no hay días cerrados.</div>';if(el2)el2.innerHTML="<p style='color:var(--grey)'>Aún no hay días cerrados.</p>";return;}
+  hist.forEach((d,i)=>{
+    el.appendChild(buildHistEntry(d,i));
+    if(el2)el2.appendChild(buildHistEntry(d,i));
+  });
+}
+
+/* ---------- Render all ---------- */
+function renderAll(){
+  if(!day){renderHist();return;}
+  $("day-fondo").textContent=fmt(day.fondo);
+  $("day-opened").textContent="· Apertura "+day.openedAt;
+  $("st-sold").textContent=fmt(soldTotal(day));
+  $("st-cash").textContent=fmt(expectedCash(day));
+  $("st-open").textContent=openCount(day);
+  renderAccounts();renderExpenses();
+}
+initLogin();
+</script>
+</body>
+</html>
