@@ -37,7 +37,7 @@ input,select{font-family:inherit;font-size:16px}
 .btn.block{width:100%}
 .btn:disabled{opacity:.45}
 /* Strip */
-#strip{position:sticky;top:0;z-index:10;height:48px;background:#000;border-bottom:1px solid #2a2a2a;display:flex;align-items:center;justify-content:space-between;padding:0 10px;font-size:13px;gap:6px}
+#strip{position:sticky;top:0;z-index:10;min-height:48px;background:#000;border-bottom:1px solid #2a2a2a;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;padding:6px 10px;font-size:13px;gap:4px 10px}
 #strip b{color:var(--gold)}
 #strip span{white-space:nowrap}
 /* Header / screens */
@@ -88,6 +88,16 @@ label.f{display:block;font-size:13px;color:var(--grey);margin:8px 0 4px}
 .pick-row{display:flex;flex-wrap:wrap;gap:6px}
 .pick-row button{flex:1 1 auto;min-width:64px;padding:11px 6px;border-radius:10px;border:1px solid #444;background:#262626;color:#fff;font-weight:700;font-size:14px}
 .pick-row button.on{background:var(--green);color:#000;border-color:var(--green)}
+/* Para llevar / Aquí (solo botones) */
+.takeaway{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.takeaway button{padding:11px 4px;border-radius:10px;border:1px solid #444;background:#262626;color:#fff;font-weight:700;font-size:14px}
+.takeaway button.on{background:var(--green);color:#000;border-color:var(--green)}
+.takeaway-label{text-align:center;font-size:13px;color:var(--grey);font-weight:700;margin-top:10px}
+/* Corregir pago */
+.correct-panel{margin-top:10px;background:#222;border:2px solid var(--gold);border-radius:11px;padding:12px}
+.correct-panel .lbl{font-size:13px;color:var(--grey);margin:10px 0 6px;text-align:center;font-weight:700}
+.correct-panel .lbl:first-child{margin-top:0}
+.btn-danger{background:#3a1414;color:#ff8a8a;border:2px solid var(--red)}
 /* Bottom nav */
 nav.bottom{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:560px;background:#000;border-top:1px solid #2a2a2a;display:flex;z-index:10}
 nav.bottom button{flex:1;background:none;border:none;color:var(--grey);padding:12px 2px 14px;font-size:12px;font-weight:700}
@@ -137,7 +147,7 @@ nav.bottom button.on{color:var(--green-bright)}
 
 <!-- APP -->
 <div id="app" class="hidden">
-  <div id="strip"><span>Vendido hoy <b id="st-sold">$0</b></span><span>En caja <b id="st-cash">$0</b></span><span>Cuentas abiertas <b id="st-open">0</b></span></div>
+  <div id="strip"><span>Vendido hoy <b id="st-sold">$0</b></span><span>En caja <b id="st-cash">$0</b></span><span>Mesas abiertas <b id="st-open">0</b></span><span>🥡 <b id="st-take">$0</b> · 🍽️ <b id="st-here">$0</b></span></div>
   <header class="app">
     <img src="assets/logo-cerdo.jpg" alt="logo">
     <h2>Carnitas el Serrano<small id="hdr-date"></small></h2>
@@ -166,7 +176,7 @@ nav.bottom button.on{color:var(--green-bright)}
     <div class="card row">
       <div class="grow"><b>Fondo de caja</b><br><span class="money" id="day-fondo">$0</span> <small style="color:var(--grey)" id="day-opened"></small></div>
       <button class="btn ghost small" id="btn-edit-fondo">✎ Editar fondo</button>
-      <button class="btn gold" id="btn-new-acct">+ Nueva cuenta</button>
+      <button class="btn gold" id="btn-new-acct">+ Nueva mesa</button>
     </div>
     <div class="card hidden" id="fondo-edit">
       <label class="f" for="fondo-edit-input">Corregir fondo de caja (MXN)</label>
@@ -196,6 +206,8 @@ nav.bottom button.on{color:var(--green-bright)}
       <p>Debe haber en caja: <b class="money" id="cl-cash">$0</b></p>
       <p>Pendiente por cobrar: <b class="money" id="cl-credit">$0</b></p>
       <p>Obsequios: <b class="money" id="cl-gift">$0</b></p>
+      <p>🥡 Para llevar: <b class="money" id="cl-take">$0</b></p>
+      <p>🍽️ Aquí: <b class="money" id="cl-here">$0</b></p>
       <div id="cl-warn" style="color:var(--red);font-weight:600;margin-top:8px"></div>
       <button class="btn gold block" id="btn-confirm-close" style="margin-top:12px">Confirmar cierre y ver hoja</button>
       <button class="btn ghost block" id="btn-back-day" style="margin-top:8px">Volver al día</button>
@@ -215,6 +227,17 @@ nav.bottom button.on{color:var(--green-bright)}
       <button class="btn ghost" id="btn-sheet-back">Volver</button>
     </div>
     <div id="sheet"></div>
+  </div>
+
+  <!-- HISTORY DETAIL -->
+  <div id="view-hist-detail" class="wrap hidden">
+    <div class="noprint" style="display:flex;gap:8px;margin-bottom:10px">
+      <button class="btn ghost" id="btn-hist-detail-back">← Volver</button>
+      <button class="btn gold" id="btn-hist-detail-sheet" style="flex:1">Ver hoja de cierre</button>
+    </div>
+    <h3 class="sec" id="hist-detail-title"></h3>
+    <p style="color:var(--grey);font-size:14px;margin-bottom:10px" id="hist-detail-summary"></p>
+    <div id="hist-detail-accts"></div>
   </div>
 
   <nav class="bottom">
@@ -241,6 +264,8 @@ let closingSheet=null; // closed day object being viewed
 const kiloSel={};
 /* Payment-method picker per account (keyed by account number, not saved): true = panel visible */
 const paySel={};
+/* Confirmación de borrado por mesa (número de mesa, no se guarda) */
+const delConfirm={};
 
 /* ---------- Login / first-run setup ---------- */
 const hasPw=()=>!!localStorage.getItem(LS_PW);
@@ -277,11 +302,12 @@ function enterApp(){
   renderAll();
 }
 function showView(v){
-  ["start","day","close","hist","sheet"].forEach(x=>$("view-"+x).classList.toggle("hidden",x!==v));
+  ["start","day","close","hist","hist-detail","sheet"].forEach(x=>$("view-"+x).classList.toggle("hidden",x!==v));
   $("nav-day").classList.toggle("on",v==="day");
   $("nav-close").classList.toggle("on",v==="close");
-  $("nav-hist").classList.toggle("on",v==="hist"||v==="sheet");
+  $("nav-hist").classList.toggle("on",v==="hist"||v==="sheet"||v==="hist-detail");
   if(v==="hist")renderHist();
+  if(v==="hist-detail"&&histDetailIdx!=null)renderHistDetail(histDetailIdx);
   if(v==="close")renderClose();
   window.scrollTo(0,0);
 }
@@ -291,6 +317,8 @@ $("nav-hist").onclick=()=>showView("hist");
 $("btn-back-day").onclick=()=>showView("day");
 $("btn-sheet-back").onclick=()=>{closingSheet?showView("hist"):showView("day");};
 $("btn-print").onclick=()=>window.print();
+$("btn-hist-detail-back").onclick=()=>showView("hist");
+$("btn-hist-detail-sheet").onclick=()=>{if(histDetailIdx!=null){closingSheet=hist[histDetailIdx];renderSheet(closingSheet);showView("sheet");}};
 
 /* ---------- Start day ---------- */
 $("btn-start").onclick=()=>{
@@ -310,6 +338,12 @@ function expTotal(d){return d.expenses.reduce((s,e)=>s+e.amount,0);}
 function expectedCash(d){return d.fondo+cashSales(d)-expTotal(d);}
 function creditTotal(d){return d.accounts.filter(a=>a.status==="credit").reduce((s,a)=>s+acctTotal(a),0);}
 function giftTotal(d){return d.accounts.filter(a=>a.status==="gift").reduce((s,a)=>s+acctTotal(a),0);}
+function paidAccounts(d){return d.accounts.filter(a=>a.status==="paid");}
+function paraLlevarTotal(d){return paidAccounts(d).filter(a=>a.paraLlevar).reduce((s,a)=>s+acctTotal(a),0);}
+function aquiTotal(d){return paidAccounts(d).filter(a=>!a.paraLlevar).reduce((s,a)=>s+acctTotal(a),0);}
+function paraLlevarCount(d){return paidAccounts(d).filter(a=>a.paraLlevar).length;}
+function aquiCount(d){return paidAccounts(d).filter(a=>!a.paraLlevar).length;}
+const METHOD_LABEL={efectivo:"Efectivo",tarjeta:"Tarjeta",transferencia:"Transferencia"};
 function openCount(d){return d.accounts.filter(a=>a.status==="open").length;}
 
 /* ---------- Editar fondo (corrige el monto, no cambia la hora de apertura) ---------- */
@@ -334,7 +368,7 @@ $("btn-save-fondo").onclick=()=>{
 /* ---------- Accounts ---------- */
 $("btn-new-acct").onclick=()=>{
   const n=day.accounts.length?Math.max(...day.accounts.map(a=>a.num))+1:1;
-  day.accounts.push({num:n,items:[],status:"open",method:null,ref:"",paidAt:null});
+  day.accounts.push({num:n,items:[],status:"open",method:null,ref:"",paidAt:null,paraLlevar:false});
   save(LS_CUR,day);renderAll();
 };
 function addItem(acctIdx,prod){
@@ -380,17 +414,60 @@ function reopenAccount(acctIdx){
   a.status="open";a.paidAt=null;a.ref="";
   save(LS_CUR,day);renderAll();
 }
+/* ---------- Corregir pago (mesa pagada, solo botones) ---------- */
+/* corr guarda la selección sin guardar: {scope:"day"|"hist", idx, num, method, paraLlevar} */
+let corr=null;
+function correctPanelHTML(a){
+  const changed=corr.method!==a.method||corr.paraLlevar!==!!a.paraLlevar;
+  return '<div class="correct-panel">'
+    +'<p style="text-align:center;font-weight:800;font-size:17px">Corregir Mesa '+a.num+'</p>'
+    +'<p style="text-align:center;color:var(--grey);font-size:13px;margin-top:4px">Solo cambia el método de pago y si fue para llevar o aquí. Los productos no cambian y la mesa sigue pagada.</p>'
+    +'<div class="lbl">¿Cómo pagó en realidad?</div>'
+    +'<div class="methods" style="margin-top:0">'
+    +["efectivo","tarjeta","transferencia"].map(m=>'<button data-cm="'+m+'" class="'+(corr.method===m?"on":"")+'">'+METHOD_LABEL[m]+'</button>').join("")
+    +'</div>'
+    +'<div class="lbl">¿Fue para llevar o para consumir aquí?</div>'
+    +'<div class="takeaway" style="margin-top:0">'
+    +'<button data-ct="aqui" class="'+(corr.paraLlevar?"":"on")+'">🍽️ Aquí</button>'
+    +'<button data-ct="llevar" class="'+(corr.paraLlevar?"on":"")+'">🥡 Para llevar</button></div>'
+    +'<div class="row" style="margin-top:12px"><button class="btn ghost" data-ccancel="1" style="flex:1">Cancelar</button>'
+    +'<button class="btn gold" data-csave="1" style="flex:1"'+(changed?"":" disabled")+'>Guardar corrección</button></div>'
+    +(changed?"":'<p style="text-align:center;color:var(--grey);font-size:13px;margin-top:8px">Toca otro método o cambia a para llevar / aquí para guardar.</p>')
+    +'</div>';
+}
+function wireCorrectPanel(div,a,scope,idx){
+  div.querySelectorAll("[data-cm]").forEach(b=>b.onclick=()=>{corr.method=b.dataset.cm;renderAll();if(scope==="hist")renderHistDetail(idx);});
+  div.querySelectorAll("[data-ct]").forEach(b=>b.onclick=()=>{corr.paraLlevar=b.dataset.ct==="llevar";renderAll();if(scope==="hist")renderHistDetail(idx);});
+  const cc=div.querySelector("[data-ccancel]");if(cc)cc.onclick=()=>{corr=null;renderAll();if(scope==="hist")renderHistDetail(idx);};
+  const cs=div.querySelector("[data-csave]");if(cs)cs.onclick=()=>saveCorrect(scope,idx);
+}
+function saveCorrect(scope,idx){
+  if(!corr)return;
+  const d=scope==="day"?day:hist[idx];
+  if(!d)return;
+  const a=d.accounts.find(x=>x.num===corr.num);
+  if(!a)return;
+  a.method=corr.method;a.paraLlevar=corr.paraLlevar; /* productos y estado no se tocan */
+  if(scope==="day")save(LS_CUR,day);else save(LS_HIST,hist);
+  corr=null;
+  renderAll();
+  if(scope==="hist")renderHistDetail(idx);
+}
 function renderAccounts(){
   const el=$("accounts");el.innerHTML="";
-  if(!day.accounts.length){el.innerHTML='<div class="card" style="color:var(--grey)">Aún no hay cuentas. Toca “+ Nueva cuenta”.</div>';return;}
+  if(!day.accounts.length){el.innerHTML='<div class="card" style="color:var(--grey)">Aún no hay mesas. Toca “+ Nueva mesa”.</div>';return;}
   day.accounts.forEach((a,ai)=>{
     const locked=a.status!=="open";
     const sel=kiloSel[a.num]||(kiloSel[a.num]={open:false,kg:null,price:null,msg:""});
     const div=document.createElement("div");div.className="card";
     let statusPill=a.status==="open"?'<span class="pill">Abierta</span>'
-      :a.status==="paid"?'<span class="pill paid">Pagada · '+(a.method||"")+'</span>'
+      :a.status==="paid"?'<span class="pill paid">Pagada · '+(METHOD_LABEL[a.method]||"")+'</span>'
       :a.status==="credit"?'<span class="pill credit">Crédito</span>':'<span class="pill gift">Obsequio</span>';
-    let h='<div class="row"><span class="acct-num">Cuenta '+a.num+'</span>'+statusPill+'<span class="sp" style="flex:1"></span><span class="acct-total money">'+fmt(acctTotal(a))+'</span></div>';
+    let h='<div class="row"><span class="acct-num">Mesa '+a.num+'</span>'+statusPill;
+    if(a.status!=="open"||a.paraLlevar){
+      h+='<span class="pill" style="background:#000;color:#fff;border:1px solid #555">'+(a.paraLlevar?"🥡 Para llevar":"🍽️ Aquí")+'</span>';
+    }
+    h+='<span class="sp" style="flex:1"></span><span class="acct-total money">'+fmt(acctTotal(a))+'</span></div>';
     if(a.ref)h+='<div style="color:var(--grey);font-size:13px;margin-top:4px">Ref: '+escapeHtml(a.ref)+'</div>';
     if(a.paidAt)h+='<div style="color:var(--grey);font-size:13px">Hora: '+a.paidAt+'</div>';
     h+='<div class="items"></div>';
@@ -400,6 +477,10 @@ function renderAccounts(){
         +'<button data-m="tortillas">Tortillas <b>manual</b></button>'
         +'<button data-m="kilos">Kilos</button>'
         +'<button data-m="otro">Otro <b>manual</b></button></div>';
+      /* Para llevar / Aquí — se marca junto a Pagado, Crédito y Obsequio. */
+      h+='<div class="takeaway-label">¿Para llevar o para consumir aquí?</div><div class="takeaway">'
+        +'<button data-ta="aqui" class="'+(a.paraLlevar?"":"on")+'">🍽️ Aquí</button>'
+        +'<button data-ta="llevar" class="'+(a.paraLlevar?"on":"")+'">🥡 Para llevar</button></div>';
       h+='<div class="closebtns"><button class="b-paid" data-c="paid">Pagado</button><button class="b-credit" data-c="credit">Crédito</button><button class="b-gift" data-c="gift">Obsequio</button></div>';
       /* Pago: al tocar Pagado se abren solo botones de método, no se escribe nada. */
       h+='<div class="methods'+(paySel[a.num]?"":" hidden")+'">'
@@ -422,8 +503,21 @@ function renderAccounts(){
       }
       kiloPanel+='<div class="kilos-msg" style="color:var(--red);font-weight:600;font-size:13px;margin-top:6px;min-height:16px">'+escapeHtml(sel.msg||"")+'</div></div>';
       h+=kiloPanel;
-    }else if(a.status!=="paid"){
-      h+='<button class="btn ghost small" data-reopen="1" style="margin-top:10px">Reabrir cuenta</button>';
+      /* Borrar mesa abierta — siempre visible, tenga productos o esté en blanco */
+      h+='<div style="margin-top:12px;border-top:1px solid #2c2c2c;padding-top:10px">'
+        +(delConfirm[a.num]
+          ?'<p style="text-align:center;color:var(--red);font-weight:700;margin-bottom:8px">¿Borrar Mesa '+a.num+(a.items.length>0?' con '+fmt(acctTotal(a)):' en blanco')+'? No se puede deshacer.</p><div class="row"><button class="btn ghost" data-del-mesa-no="1" style="flex:1">No borrar</button><button class="btn btn-danger" data-del-mesa-yes="1" style="flex:1">Sí, borrar mesa</button></div>'
+          :'<button class="btn btn-danger block" data-del-mesa="1">🗑️ Borrar esta mesa</button>')
+        +'</div>';
+    }else if(a.status==="paid"){
+      if(corr&&corr.scope==="day"&&corr.num===a.num){
+        h+=correctPanelHTML(a);
+      }else{
+        h+='<button class="btn gold block" data-correct="1" style="margin-top:10px">✏️ Corregir pago</button>'
+          +'<p style="text-align:center;color:var(--grey);font-size:13px;margin-top:6px">¿Quedó mal el método o si fue para llevar? Corrígelo aquí, solo con botones. Los productos no cambian.</p>';
+      }
+    }else{
+      h+='<button class="btn ghost small" data-reopen="1" style="margin-top:10px">Reabrir mesa</button>';
     }
     div.innerHTML=h;
     const itemsEl=div.querySelector(".items");
@@ -469,8 +563,14 @@ function renderAccounts(){
         s.kg=null;s.price=null;s.msg="";s.open=true;
         save(LS_CUR,day);renderAll();
       };
+      div.querySelectorAll("[data-ta]").forEach(b=>b.onclick=()=>{a.paraLlevar=b.dataset.ta==="llevar";save(LS_CUR,day);renderAll();});
+      const dDel=div.querySelector("[data-del-mesa]");if(dDel)dDel.onclick=()=>{delConfirm[a.num]=true;renderAll();};
+      const dNo=div.querySelector("[data-del-mesa-no]");if(dNo)dNo.onclick=()=>{delete delConfirm[a.num];renderAll();};
+      const dYes=div.querySelector("[data-del-mesa-yes]");if(dYes)dYes.onclick=()=>{delete delConfirm[a.num];day.accounts.splice(ai,1);save(LS_CUR,day);renderAll();};
     }else{
       const rb=div.querySelector("[data-reopen]");if(rb)rb.onclick=()=>reopenAccount(ai);
+      const cb=div.querySelector("[data-correct]");if(cb)cb.onclick=()=>{corr={scope:"day",idx:null,num:a.num,method:a.method,paraLlevar:!!a.paraLlevar};renderAll();};
+      wireCorrectPanel(div,a,"day",null);
     }
     el.appendChild(div);
   });
@@ -505,13 +605,15 @@ function renderClose(){
   $("cl-cash").textContent=fmt(expectedCash(day));
   $("cl-credit").textContent=fmt(creditTotal(day));
   $("cl-gift").textContent=fmt(giftTotal(day));
+  $("cl-take").textContent=fmt(paraLlevarTotal(day));
+  $("cl-here").textContent=fmt(aquiTotal(day));
   const openWith=day.accounts.filter(a=>a.status==="open"&&a.items.length>0);
-  $("cl-warn").textContent=openWith.length?("No se puede cerrar: hay "+openWith.length+" cuenta(s) abierta(s) con productos: "+openWith.map(a=>"Cuenta "+a.num).join(", ")+"."):"";
+  $("cl-warn").textContent=openWith.length?("No se puede cerrar: hay "+openWith.length+" mesa(s) abierta(s) con productos: "+openWith.map(a=>"Mesa "+a.num).join(", ")+"."):"";
   $("btn-confirm-close").disabled=openWith.length>0;
 }
 $("btn-confirm-close").onclick=()=>{
   const openWith=day.accounts.filter(a=>a.status==="open"&&a.items.length>0);
-  if(openWith.length){alert("Hay cuentas abiertas con productos. Ciérralas primero.");return;}
+  if(openWith.length){alert("Hay mesas abiertas con productos. Ciérralas primero.");return;}
   const closed={...day,closed:true,closedAt:nowTime(),accounts:day.accounts.filter(a=>!(a.status==="open"&&a.items.length===0))};
   hist.unshift(closed);
   save(LS_HIST,hist);
@@ -548,7 +650,7 @@ function renderSheet(d){
   const hrs=Object.keys(h).sort();
   const maxH=hrs.length?Math.max(...hrs.map(k=>h[k])):0;
   const saleTimes=d.accounts.filter(a=>a.paidAt).map(a=>a.paidAt).sort();
-  const rows=(list,status)=>list.map(a=>"<tr><td>Cuenta "+a.num+"</td><td>"+escapeHtml(a.ref||"—")+"</td><td>"+fmt(acctTotal(a))+"</td></tr>").join("");
+  const rows=(list,status)=>list.map(a=>"<tr><td>Mesa "+a.num+"</td><td>"+escapeHtml(a.ref||"—")+"</td><td>"+fmt(acctTotal(a))+"</td></tr>").join("");
   $("sheet").innerHTML=
     '<img class="camion" src="assets/camion.jpg" alt="Camión Carnitas el Serrano">'
     +'<img class="logo2" src="assets/logo-cerdo.jpg" alt="Carnitas el Serrano">'
@@ -564,6 +666,9 @@ function renderSheet(d){
     +'<tr><td>Pendiente por cobrar (crédito)</td><td>'+fmt(creditTotal(d))+'</td></tr>'
     +'<tr><td>Obsequios</td><td>'+fmt(giftTotal(d))+'</td></tr>'
     +'</table><div class="total-band">En caja debe haber: <b>'+fmt(expectedCash(d))+'</b></div>'
+    +'<h3>Para llevar vs aquí</h3><table>'
+    +'<tr><td>🥡 Para llevar ('+paraLlevarCount(d)+' mesa'+(paraLlevarCount(d)===1?'':'s')+')</td><td>'+fmt(paraLlevarTotal(d))+'</td></tr>'
+    +'<tr><td>🍽️ Para consumir aquí ('+aquiCount(d)+' mesa'+(aquiCount(d)===1?'':'s')+')</td><td>'+fmt(aquiTotal(d))+'</td></tr></table>'
     +'<h3>Lo que se vendió</h3><table>'
     +'<tr><td>Tacos</td><td>'+t.tacos+'</td></tr>'
     +'<tr><td>Refrescos</td><td>'+t.refrescos+'</td></tr>'
@@ -592,7 +697,7 @@ function reopenDay(idx){
   if(!d)return;
   if(d.date!==todayStr()){alert("Solo se puede reabrir el día de hoy.");return;}
   if(day){alert("Ya hay un día abierto. Ciérralo primero para poder reabrir el día de hoy.");return;}
-  if(!confirm("¿Reabrir el día de hoy?\n\nEl día cerrado de hoy volverá a estar abierto con sus cuentas, gastos y fondo, tal como quedó al cerrarlo. Podrás meter otra venta y volver a cerrarlo."))return;
+  if(!confirm("¿Reabrir el día de hoy?\n\nEl día cerrado de hoy volverá a estar abierto con sus mesas, gastos y fondo, tal como quedó al cerrarlo. Podrás meter otra venta y volver a cerrarlo."))return;
   // Quitarlo del historial para que al volver a cerrarlo no se duplique.
   hist.splice(idx,1);
   save(LS_HIST,hist);
@@ -607,8 +712,8 @@ function buildHistEntry(d,i){
   const wrap=document.createElement("div");
   wrap.style.marginBottom="8px";
   const b=document.createElement("button");b.className="btn ghost block";b.style.textAlign="left";
-  b.textContent=d.date+" · Vendido "+fmt(soldTotal(d))+" · En caja "+fmt(expectedCash(d));
-  b.onclick=()=>{closingSheet=d;renderSheet(d);showView("sheet");};
+  b.textContent=d.date+" · Vendido "+fmt(soldTotal(d))+" · 🥡 "+fmt(paraLlevarTotal(d))+" · 🍽️ "+fmt(aquiTotal(d));
+  b.onclick=()=>showHistDetail(i);
   wrap.appendChild(b);
   if(d.date===todayStr()){
     const r=document.createElement("button");r.className="btn gold block";r.style.marginTop="6px";
@@ -628,6 +733,46 @@ function renderHist(){
   });
 }
 
+/* ---------- Detalle de un día cerrado (desde Días anteriores) ---------- */
+let histDetailIdx=null;
+function showHistDetail(idx){histDetailIdx=idx;renderHistDetail(idx);showView("hist-detail");}
+function renderHistDetail(idx){
+  const d=hist[idx];if(!d)return;
+  $("hist-detail-title").textContent=d.date;
+  $("hist-detail-summary").textContent="Vendido "+fmt(soldTotal(d))+" · En caja "+fmt(expectedCash(d))+" · 🥡 Para llevar "+fmt(paraLlevarTotal(d))+" · 🍽️ Aquí "+fmt(aquiTotal(d));
+  const el=$("hist-detail-accts");el.innerHTML="";
+  d.accounts.forEach(a=>{
+    const div=document.createElement("div");div.className="card";
+    let statusPill=a.status==="paid"?'<span class="pill paid">Pagada · '+(METHOD_LABEL[a.method]||"")+'</span>'
+      :a.status==="credit"?'<span class="pill credit">Crédito</span>'
+      :a.status==="gift"?'<span class="pill gift">Obsequio</span>':'<span class="pill">Abierta</span>';
+    let h='<div class="row"><span class="acct-num">Mesa '+a.num+'</span>'+statusPill
+      +'<span class="pill" style="background:#000;color:#fff;border:1px solid #555">'+(a.paraLlevar?"🥡 Para llevar":"🍽️ Aquí")+'</span>'
+      +'<span class="sp" style="flex:1"></span><span class="acct-total money">'+fmt(acctTotal(a))+'</span></div>';
+    if(a.ref)h+='<div style="color:var(--grey);font-size:13px;margin-top:4px">Ref: '+escapeHtml(a.ref)+'</div>';
+    if(a.paidAt)h+='<div style="color:var(--grey);font-size:13px">Hora: '+a.paidAt+'</div>';
+    h+='<div class="items">';
+    a.items.forEach(it=>{
+      const label=it.k==="kilos"&&it.kg?it.n+" · "+it.kg+" kg":it.n;
+      h+='<div class="item"><span class="nm">'+escapeHtml(label)+'<small>'+fmt(it.price)+' c/u</small></span><span><b>x'+it.qty+'</b> · '+fmt(it.qty*it.price)+'</span></div>';
+    });
+    h+='</div>';
+    if(a.status==="paid"){
+      if(corr&&corr.scope==="hist"&&corr.idx===idx&&corr.num===a.num){
+        h+=correctPanelHTML(a);
+      }else{
+        h+='<button class="btn gold block" data-correct="1" style="margin-top:10px">✏️ Corregir pago</button>'
+          +'<p style="text-align:center;color:var(--grey);font-size:13px;margin-top:6px">Solo método de pago y para llevar / aquí. Los productos no cambian y la hoja de cierre se actualiza.</p>';
+      }
+    }
+    div.innerHTML=h;
+    const cb=div.querySelector("[data-correct]");
+    if(cb)cb.onclick=()=>{corr={scope:"hist",idx:idx,num:a.num,method:a.method,paraLlevar:!!a.paraLlevar};renderHistDetail(idx);};
+    wireCorrectPanel(div,a,"hist",idx);
+    el.appendChild(div);
+  });
+}
+
 /* ---------- Render all ---------- */
 function renderAll(){
   if(!day){renderHist();return;}
@@ -636,6 +781,8 @@ function renderAll(){
   $("st-sold").textContent=fmt(soldTotal(day));
   $("st-cash").textContent=fmt(expectedCash(day));
   $("st-open").textContent=openCount(day);
+  $("st-take").textContent=fmt(paraLlevarTotal(day));
+  $("st-here").textContent=fmt(aquiTotal(day));
   renderAccounts();renderExpenses();
 }
 initLogin();
