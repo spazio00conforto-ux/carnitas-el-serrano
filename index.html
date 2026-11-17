@@ -40,6 +40,7 @@ input,select{font-family:inherit;font-size:16px}
 #strip{position:sticky;top:0;z-index:10;min-height:48px;background:#000;border-bottom:1px solid #2a2a2a;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;padding:6px 10px;font-size:13px;gap:4px 10px}
 #strip b{color:var(--gold)}
 #strip span{white-space:nowrap}
+#strip .btn{padding:7px 10px;font-size:13px;border-radius:9px;flex-shrink:0}
 /* Header / screens */
 .wrap{padding:14px 12px 90px}
 header.app{display:flex;align-items:center;gap:10px;padding:12px}
@@ -147,7 +148,7 @@ nav.bottom button.on{color:var(--green-bright)}
 
 <!-- APP -->
 <div id="app" class="hidden">
-  <div id="strip"><span>Vendido hoy <b id="st-sold">$0</b></span><span>En caja <b id="st-cash">$0</b></span><span>Mesas abiertas <b id="st-open">0</b></span><span>🥡 <b id="st-take">$0</b> · 🍽️ <b id="st-here">$0</b></span></div>
+  <div id="strip"><span>Vendido hoy <b id="st-sold">$0</b></span><span>En caja <b id="st-cash">$0</b></span><span>Mesas abiertas <b id="st-open">0</b></span><span>🥡 <b id="st-take">$0</b> · 🍽️ <b id="st-here">$0</b></span><button class="btn gold small" id="btn-new-acct-strip">+ Nueva mesa</button></div>
   <header class="app">
     <img src="assets/logo-cerdo.jpg" alt="logo">
     <h2>Carnitas el Serrano<small id="hdr-date"></small></h2>
@@ -209,6 +210,7 @@ nav.bottom button.on{color:var(--green-bright)}
       <p>🥡 Para llevar: <b class="money" id="cl-take">$0</b></p>
       <p>🍽️ Aquí: <b class="money" id="cl-here">$0</b></p>
       <div id="cl-warn" style="color:var(--red);font-weight:600;margin-top:8px"></div>
+      <div id="cl-audit" style="color:var(--grey);font-size:14px;margin-top:8px"></div>
       <button class="btn gold block" id="btn-confirm-close" style="margin-top:12px">Confirmar cierre y ver hoja</button>
       <button class="btn ghost block" id="btn-back-day" style="margin-top:8px">Volver al día</button>
     </div>
@@ -266,6 +268,46 @@ const kiloSel={};
 const paySel={};
 /* Confirmación de borrado por mesa (número de mesa, no se guarda) */
 const delConfirm={};
+/* ---------- Editar mesa (con contraseña, con registro en el cierre) ----------
+   Solo mesas ya cerradas (pagada / crédito / obsequio) del día en curso.
+   editAuth: mesas cuya contraseña ya se verificó en esta sesión.
+   editBefore: total de la mesa al entrar a editar, para registrar antes/después. */
+const editAuth={};
+let editModeNum=null;
+const editBefore={};
+function getAudit(d){return Array.isArray(d.audit)?d.audit:[];}
+function logAudit(d,entry){if(!Array.isArray(d.audit))d.audit=[];d.audit.push(entry);}
+function askEditPassword(a){
+  const p=prompt("Editar Mesa "+a.num+"\n\nEscribe la contraseña del personal:","");
+  if(p===null)return false;
+  if(p!==localStorage.getItem(LS_PW)){alert("Contraseña incorrecta.");return false;}
+  return true;
+}
+function startEdit(a){
+  if(!askEditPassword(a))return;
+  editAuth[a.num]=true;
+  editBefore[a.num]=acctTotal(a);
+  editModeNum=a.num;
+  renderAll();
+}
+function finishEdit(ai){
+  const a=day.accounts[ai];
+  if(!a){editModeNum=null;renderAll();return;}
+  if(a.items.length===0){cancelEditedMesa(ai);return;}
+  const antes=editBefore[a.num], despues=acctTotal(a);
+  if(antes!==despues)logAudit(day,{time:nowTime(),mesa:a.num,tipo:"edición",antes:antes,despues:despues});
+  delete editAuth[a.num];delete editBefore[a.num];editModeNum=null;
+  save(LS_CUR,day);renderAll();
+}
+function cancelEditedMesa(ai){
+  const a=day.accounts[ai];
+  if(!a){editModeNum=null;renderAll();return;}
+  const antes=editBefore[a.num]!=null?editBefore[a.num]:acctTotal(a);
+  logAudit(day,{time:nowTime(),mesa:a.num,tipo:"cancelación",antes:antes,despues:0});
+  delete editAuth[a.num];delete editBefore[a.num];delete delConfirm[a.num];editModeNum=null;
+  day.accounts.splice(ai,1);
+  save(LS_CUR,day);renderAll();
+}
 
 /* ---------- Login / first-run setup ---------- */
 const hasPw=()=>!!localStorage.getItem(LS_PW);
@@ -325,7 +367,7 @@ $("btn-start").onclick=()=>{
   const f=parseFloat($("fondo").value);
   if(!f||f<=0){$("fondo-err").classList.remove("hidden");return;}
   $("fondo-err").classList.add("hidden");
-  day={date:todayStr(),fondo:f,openedAt:nowTime(),accounts:[],expenses:[],closed:false};
+  day={date:todayStr(),fondo:f,openedAt:nowTime(),accounts:[],expenses:[],closed:false,audit:[]};
   save(LS_CUR,day);
   showView("day");renderAll();
 };
@@ -366,11 +408,21 @@ $("btn-save-fondo").onclick=()=>{
 };
 
 /* ---------- Accounts ---------- */
-$("btn-new-acct").onclick=()=>{
+/* ---------- Nueva mesa: botón fijo en la franja y botón de la tarjeta ----------
+   La franja (#strip) es sticky arriba, así que el botón de la franja siempre
+   está visible aunque vayas por la Mesa 12 o 13, sin subir hasta arriba.
+   Al crear la mesa, baja solo hasta ella para poder meterle productos. */
+function newAccount(){
+  if(!day)return;
   const n=day.accounts.length?Math.max(...day.accounts.map(a=>a.num))+1:1;
   day.accounts.push({num:n,items:[],status:"open",method:null,ref:"",paidAt:null,paraLlevar:false});
-  save(LS_CUR,day);renderAll();
-};
+  save(LS_CUR,day);
+  showView("day");renderAll();
+  const cards=document.querySelectorAll("#accounts .card");
+  if(cards.length)cards[cards.length-1].scrollIntoView({behavior:"smooth",block:"start"});
+}
+$("btn-new-acct").onclick=newAccount;
+$("btn-new-acct-strip").onclick=newAccount;
 function addItem(acctIdx,prod){
   const a=day.accounts[acctIdx];
   if(a.status!=="open")return;
@@ -385,6 +437,14 @@ function addManual(acctIdx,kind){
     const p=parseFloat(prompt("Precio total de las tortillas ($):","25"));
     if(!p||p<=0)return;
     a.items.push({k:"tortillas",n:"Tortillas",qty:1,price:p,kg:null});
+  }else if(kind==="tortas"){
+    /* Tortas: hay dos precios, así que el precio es manual y POR TORTA.
+       Se pone una vez y la cantidad se elige con − / + en el renglón.
+       Si la siguiente torta es del otro precio, se toca Tortas otra vez
+       y se pone ese precio: queda como renglón aparte. */
+    const p=parseFloat(prompt("Precio por torta ($):",""));
+    if(!p||p<=0)return;
+    a.items.push({k:"tortas",n:"Tortas",qty:1,price:p,kg:null});
   }else{
     const desc=prompt("Descripción:","");
     if(!desc)return;
@@ -435,6 +495,23 @@ function correctPanelHTML(a){
     +(changed?"":'<p style="text-align:center;color:var(--grey);font-size:13px;margin-top:8px">Toca otro método o cambia a para llevar / aquí para guardar.</p>')
     +'</div>';
 }
+function editPanelHTML(a){
+  const antes=editBefore[a.num]!=null?editBefore[a.num]:acctTotal(a);
+  let h='<div class="correct-panel">'
+    +'<p style="text-align:center;font-weight:800;font-size:17px">Editando Mesa '+a.num+'</p>'
+    +'<p style="text-align:center;color:var(--grey);font-size:13px;margin-top:4px">Total al entrar: <b style="color:var(--gold)">'+fmt(antes)+'</b> · Ahora: <b style="color:var(--gold)">'+fmt(acctTotal(a))+'</b><br>Usa − / + o ✕ en cada producto para corregir. Al terminar queda registrado en el cierre.</p>'
+    +'<div class="quick">'
+    +QUICK.map(q=>'<button data-eq="'+q.k+'">'+q.n+' <b>'+fmt(q.p)+'</b></button>').join("")
+    +'<button data-etortas="1">Tortas <b>manual</b></button>'
+    +'</div>'
+    +'<button class="btn gold block" data-edit-done="1" style="margin-top:12px">Terminar edición</button>'
+    +'<div style="margin-top:12px;border-top:1px solid #444;padding-top:10px">'
+    +(delConfirm[a.num]
+      ?'<p style="text-align:center;color:var(--red);font-weight:700;margin-bottom:8px">¿Cancelar la Mesa '+a.num+' ('+fmt(acctTotal(a))+')? Se borra y queda registrado en el cierre. No se puede deshacer.</p><div class="row"><button class="btn ghost" data-edit-del-no="1" style="flex:1">No cancelar</button><button class="btn btn-danger" data-edit-del-yes="1" style="flex:1">Sí, cancelar mesa</button></div>'
+      :'<button class="btn btn-danger block" data-edit-del="1">🗑️ Cancelar esta mesa</button>')
+    +'</div></div>';
+  return h;
+}
 function wireCorrectPanel(div,a,scope,idx){
   div.querySelectorAll("[data-cm]").forEach(b=>b.onclick=()=>{corr.method=b.dataset.cm;renderAll();if(scope==="hist")renderHistDetail(idx);});
   div.querySelectorAll("[data-ct]").forEach(b=>b.onclick=()=>{corr.paraLlevar=b.dataset.ct==="llevar";renderAll();if(scope==="hist")renderHistDetail(idx);});
@@ -458,6 +535,7 @@ function renderAccounts(){
   if(!day.accounts.length){el.innerHTML='<div class="card" style="color:var(--grey)">Aún no hay mesas. Toca “+ Nueva mesa”.</div>';return;}
   day.accounts.forEach((a,ai)=>{
     const locked=a.status!=="open";
+    const isEditing=editModeNum===a.num&&!!editAuth[a.num];
     const sel=kiloSel[a.num]||(kiloSel[a.num]={open:false,kg:null,price:null,msg:""});
     const div=document.createElement("div");div.className="card";
     let statusPill=a.status==="open"?'<span class="pill">Abierta</span>'
@@ -475,6 +553,7 @@ function renderAccounts(){
       h+='<div class="quick">'
         +QUICK.map(q=>'<button data-q="'+q.k+'">'+q.n+' <b>'+fmt(q.p)+'</b></button>').join("")
         +'<button data-m="tortillas">Tortillas <b>manual</b></button>'
+        +'<button data-m="tortas">Tortas <b>manual</b></button>'
         +'<button data-m="kilos">Kilos</button>'
         +'<button data-m="otro">Otro <b>manual</b></button></div>';
       /* Para llevar / Aquí — se marca junto a Pagado, Crédito y Obsequio. */
@@ -510,14 +589,24 @@ function renderAccounts(){
           :'<button class="btn btn-danger block" data-del-mesa="1">🗑️ Borrar esta mesa</button>')
         +'</div>';
     }else if(a.status==="paid"){
-      if(corr&&corr.scope==="day"&&corr.num===a.num){
+      if(editModeNum===a.num&&editAuth[a.num]){
+        h+=editPanelHTML(a);
+      }else if(corr&&corr.scope==="day"&&corr.num===a.num){
         h+=correctPanelHTML(a);
       }else{
         h+='<button class="btn gold block" data-correct="1" style="margin-top:10px">✏️ Corregir pago</button>'
-          +'<p style="text-align:center;color:var(--grey);font-size:13px;margin-top:6px">¿Quedó mal el método o si fue para llevar? Corrígelo aquí, solo con botones. Los productos no cambian.</p>';
+          +'<p style="text-align:center;color:var(--grey);font-size:13px;margin-top:6px">¿Quedó mal el método o si fue para llevar? Corrígelo aquí, solo con botones. Los productos no cambian.</p>'
+          +'<button class="btn ghost block" data-edit="1" style="margin-top:10px">✏️ Editar mesa</button>'
+          +'<p style="text-align:center;color:var(--grey);font-size:13px;margin-top:6px">Corrige cantidades o borra la mesa. Pide la contraseña y queda registrado en el cierre.</p>';
       }
     }else{
-      h+='<button class="btn ghost small" data-reopen="1" style="margin-top:10px">Reabrir mesa</button>';
+      if(editModeNum===a.num&&editAuth[a.num]){
+        h+=editPanelHTML(a);
+      }else{
+        h+='<button class="btn ghost small" data-reopen="1" style="margin-top:10px">Reabrir mesa</button>'
+          +' <button class="btn ghost small" data-edit="1" style="margin-top:10px">✏️ Editar mesa</button>'
+          +'<p style="text-align:center;color:var(--grey);font-size:13px;margin-top:6px">Editar mesa pide la contraseña y queda registrado en el cierre.</p>';
+      }
     }
     div.innerHTML=h;
     const itemsEl=div.querySelector(".items");
@@ -525,9 +614,9 @@ function renderAccounts(){
       const row=document.createElement("div");row.className="item";
       const label=it.k==="kilos"&&it.kg?it.n+" · "+it.kg+" kg":it.n;
       row.innerHTML='<span class="nm">'+escapeHtml(label)+'<small>'+fmt(it.price)+' c/u</small></span>'
-        +(locked?'<span><b>x'+it.qty+'</b> · '+fmt(it.qty*it.price)+'</span>'
+        +((locked&&!isEditing)?'<span><b>x'+it.qty+'</b> · '+fmt(it.qty*it.price)+'</span>'
         :'<span class="qty"><button data-dec="1">−</button><span>'+it.qty+'</span><button data-inc="1">+</button></span><b>'+fmt(it.qty*it.price)+'</b><button class="btn ghost small" data-del="1">✕</button>');
-      if(!locked){
+      if(!locked||isEditing){
         row.querySelector("[data-inc]").onclick=()=>{it.qty++;save(LS_CUR,day);renderAll();};
         row.querySelector("[data-dec]").onclick=()=>{it.qty--;if(it.qty<=0)a.items.splice(ii,1);save(LS_CUR,day);renderAll();};
         row.querySelector("[data-del]").onclick=()=>{a.items.splice(ii,1);save(LS_CUR,day);renderAll();};
@@ -571,6 +660,25 @@ function renderAccounts(){
       const rb=div.querySelector("[data-reopen]");if(rb)rb.onclick=()=>reopenAccount(ai);
       const cb=div.querySelector("[data-correct]");if(cb)cb.onclick=()=>{corr={scope:"day",idx:null,num:a.num,method:a.method,paraLlevar:!!a.paraLlevar};renderAll();};
       wireCorrectPanel(div,a,"day",null);
+      /* Editar mesa: pide contraseña, corrige cantidades, registra antes/después. */
+      const eb=div.querySelector("[data-edit]");if(eb)eb.onclick=()=>startEdit(a);
+      div.querySelectorAll("[data-eq]").forEach(b=>b.onclick=()=>{
+        const prod=QUICK.find(q=>q.k===b.dataset.eq);if(!prod)return;
+        const ex=a.items.find(i=>i.k===prod.k);
+        if(ex)ex.qty++;else a.items.push({k:prod.k,n:prod.n,qty:1,price:prod.p,kg:null});
+        save(LS_CUR,day);renderAll();
+      });
+      const et=div.querySelector("[data-etortas]");
+      if(et)et.onclick=()=>{
+        const p=parseFloat(prompt("Precio por torta ($):",""));
+        if(!p||p<=0)return;
+        a.items.push({k:"tortas",n:"Tortas",qty:1,price:p,kg:null});
+        save(LS_CUR,day);renderAll();
+      };
+      const ed=div.querySelector("[data-edit-done]");if(ed)ed.onclick=()=>finishEdit(ai);
+      const eDel=div.querySelector("[data-edit-del]");if(eDel)eDel.onclick=()=>{delConfirm[a.num]=true;renderAll();};
+      const eNo=div.querySelector("[data-edit-del-no]");if(eNo)eNo.onclick=()=>{delete delConfirm[a.num];renderAll();};
+      const eYes=div.querySelector("[data-edit-del-yes]");if(eYes)eYes.onclick=()=>cancelEditedMesa(ai);
     }
     el.appendChild(div);
   });
@@ -609,6 +717,8 @@ function renderClose(){
   $("cl-here").textContent=fmt(aquiTotal(day));
   const openWith=day.accounts.filter(a=>a.status==="open"&&a.items.length>0);
   $("cl-warn").textContent=openWith.length?("No se puede cerrar: hay "+openWith.length+" mesa(s) abierta(s) con productos: "+openWith.map(a=>"Mesa "+a.num).join(", ")+"."):"";
+  const au=getAudit(day);
+  $("cl-audit").innerHTML=au.length?("<b>Cambios registrados:</b><br>"+au.map(e=>e.tipo==="cancelación"?("Mesa "+e.mesa+" — cancelada: "+fmt(e.antes)+" · "+e.time):("Mesa "+e.mesa+" — editada: "+fmt(e.antes)+" → "+fmt(e.despues)+" · "+e.time)).join("<br>")):"Sin ediciones ni cancelaciones registradas.";
   $("btn-confirm-close").disabled=openWith.length>0;
 }
 $("btn-confirm-close").onclick=()=>{
@@ -625,12 +735,13 @@ $("btn-confirm-close").onclick=()=>{
 
 /* ---------- Closing sheet ---------- */
 function productTotals(d){
-  const t={tacos:0,refrescos:0,aguas:0,tortillas:0,otros:0,kilosPorciones:0,kilosKg:0};
+  const t={tacos:0,refrescos:0,aguas:0,tortillas:0,tortas:0,otros:0,kilosPorciones:0,kilosKg:0};
   d.accounts.forEach(a=>a.items.forEach(it=>{
     if(it.k==="taco")t.tacos+=it.qty;
     else if(it.k==="refresco")t.refrescos+=it.qty;
     else if(it.k==="agua")t.aguas+=it.qty;
     else if(it.k==="tortillas")t.tortillas+=it.qty;
+    else if(it.k==="tortas")t.tortas+=it.qty;
     else if(it.k==="kilos"){if(it.kg){t.kilosPorciones+=it.qty;t.kilosKg+=it.kg||0;}}
     else t.otros+=it.qty;
   }));
@@ -674,6 +785,7 @@ function renderSheet(d){
     +'<tr><td>Refrescos</td><td>'+t.refrescos+'</td></tr>'
     +'<tr><td>Aguas</td><td>'+t.aguas+'</td></tr>'
     +'<tr><td>Tortillas</td><td>'+t.tortillas+'</td></tr>'
+    +'<tr><td>Tortas</td><td>'+t.tortas+'</td></tr>'
     +'<tr><td>Kilos (porciones)</td><td>'+t.kilosPorciones+'</td></tr>'
     +'<tr><td>Kilos (kg)</td><td>'+t.kilosKg.toLocaleString("es-MX")+' kg</td></tr>'
     +'<tr><td>Otros</td><td>'+t.otros+'</td></tr></table>'
@@ -686,7 +798,10 @@ function renderSheet(d){
     +'<tr><td>Primera venta</td><td>'+(saleTimes[0]||"—")+'</td></tr>'
     +'<tr><td>Última venta</td><td>'+(saleTimes[saleTimes.length-1]||"—")+'</td></tr>'
     +'<tr><td>Cierre</td><td>'+(d.closedAt||"—")+'</td></tr></table>'
-    +'<h3>Gastos</h3><table>'+(d.expenses.length?d.expenses.map(e=>"<tr><td>"+escapeHtml(e.desc)+"</td><td>"+fmt(e.amount)+"</td></tr>").join(""):"<tr><td>Sin gastos</td><td>$0</td></tr>")+'</table>';
+    +'<h3>Gastos</h3><table>'+(d.expenses.length?d.expenses.map(e=>"<tr><td>"+escapeHtml(e.desc)+"</td><td>"+fmt(e.amount)+"</td></tr>").join(""):"<tr><td>Sin gastos</td><td>$0</td></tr>")+'</table>'
+    +'<h3>Cambios registrados</h3><table>'
+    +(getAudit(d).length?getAudit(d).map(e=>"<tr><td>Mesa "+e.mesa+" — "+(e.tipo==="cancelación"?"cancelada":"editada")+" · "+e.time+"</td><td>"+(e.tipo==="cancelación"?fmt(e.antes):fmt(e.antes)+" → "+fmt(e.despues))+"</td></tr>").join(""):"<tr><td>Sin ediciones ni cancelaciones</td><td>—</td></tr>")
+    +'</table>';
 }
 
 /* ---------- History ---------- */
@@ -775,6 +890,7 @@ function renderHistDetail(idx){
 
 /* ---------- Render all ---------- */
 function renderAll(){
+  $("btn-new-acct-strip").classList.toggle("hidden",!day);
   if(!day){renderHist();return;}
   $("day-fondo").textContent=fmt(day.fondo);
   $("day-opened").textContent="· Apertura "+day.openedAt;
